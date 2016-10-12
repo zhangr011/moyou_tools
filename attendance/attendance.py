@@ -76,7 +76,7 @@ def check_same_time(value_a, value_b):
         return False
 
 def check_in_state(value):
-    if time_delta(TIME_CHECK_IN, value) >= 0:
+    if time_delta(TIME_CHECK_IN, value) > -60:
         if time_delta(value, TIME_CHECK_IN_MIN) >= 0:
             # 指定时间之后的签到才算
             return CHECK_IN_NORMAL
