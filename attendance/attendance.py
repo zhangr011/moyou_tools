@@ -113,11 +113,12 @@ class RegInfo:
             # 重复的签到，不需要处理，处理完毕
             return True
         else:
-            self.datetime = DateTime
             [day, time] = parse_daytime(DateTime)
             self.day = day
             if self.check_in_state == CHECK_IN_UNDEFINED:
                 self.check_in_state = check_in_state(time)
+                if self.check_in_state != CHECK_IN_UNDEFINED:
+                    self.datetime = DateTime
             elif self.check_out_state == CHECK_OUT_UNDEFINED:
                 self.check_out_state = check_out_state(time)
             else:
