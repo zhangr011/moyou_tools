@@ -2,7 +2,7 @@
 import sys
 import os
 
-FILE = 'GLG_001_10.TXT'
+FILE = 'GLG_001_11.TXT'
 SUFFIX = 'TO_'
 
 TIME_DELTA = 3600
@@ -86,7 +86,7 @@ def check_in_state(value):
     else:
         return CHECK_IN_LATE, time_delta(value, TIME_CHECK_IN)
 
-def check_leave_early(value):
+def check_out_state(value):
     if time_delta(value, TIME_CHECK_OUT) >= 0:
         return CHECK_OUT_NORMAL
     else:
@@ -97,10 +97,12 @@ class RegInfo:
     def __init__(self, EnNo, DateTime):
         self.en_no = EnNo
         self.datetime = 0
+        self.checkout_datetime = 0
         self.day = 0
         self.check_in_state = CHECK_IN_UNDEFINED
         self.check_out_state = CHECK_OUT_UNDEFINED
         self.update_state(EnNo, DateTime)
+        self.last_time
 
     def update_state(self, EnNo, DateTime):
         if self.en_no != EnNo:
@@ -109,20 +111,21 @@ class RegInfo:
         if self.datetime != 0 and not check_same_day(self.datetime, DateTime):
             # 不是同一天的，也不匹配
             return False
-        if self.datetime != 0 and check_same_time(self.datetime, DateTime):
+        # if self.datetime != 0 and check_same_time(self.datetime, DateTime):
             # 重复的签到，不需要处理，处理完毕
-            return True
+            # return True
         else:
             [day, time] = parse_daytime(DateTime)
             self.day = day
             if self.check_in_state == CHECK_IN_UNDEFINED:
                 self.check_in_state = check_in_state(time)
-                if self.check_in_state != CHECK_IN_UNDEFINED:
-                    self.datetime = DateTime
+                self.datetime = DateTime
+                self.last_time = time
             elif self.check_out_state == CHECK_OUT_UNDEFINED:
-                self.check_out_state = check_out_state(time)
-            else:
-                print "something wrong of: " + self.en_no + ", " + DateTime
+                if time_delta(time, self.last_time) > 3600:
+                    self.check_out_state = check_out_state(time)
+                    self.checkout_datetime = DateTime
+                self.last_time = time
             return True
 
 # 注册信息列表
@@ -163,25 +166,36 @@ class RegInfoList:
         total_days = 0
         not_days = 0
         total_late_times = 0
+        total_early_times = 0
         total_late = 0
+        total_early = 0
         for day in self.days:
             info = self.find_info(EnNo, day)
             if info:
                 total_days += 1
-                if info.check_in_state == CHECK_IN_NORMAL:
-                    continue
-                elif info.check_in_state == CHECK_IN_UNDEFINED:
+                if info.check_in_state == CHECK_IN_UNDEFINED:
                     print "no ", EnNo, USERS.get(EnNo), day
                     not_days += 1
-                else:
+                elif info.check_in_state != CHECK_IN_NORMAL:
                     CHECK_IN_LATE, late_time = info.check_in_state
-                    print info.en_no, USERS.get(info.en_no), info.datetime
+                    print "late: ", info.en_no, USERS.get(info.en_no), info.datetime
                     total_late_times += 1
-                    total_late += late_time
+                    total_late += late_time;
+                else:
+                    if info.check_out_state == CHECK_OUT_NORMAL:
+                        continue;
+                    elif info.check_out_state == CHECK_OUT_UNDEFINED:
+                        print "early: ", info.en_no, USERS.get(info.en_no), " no leave register", info.datetime
+                        total_early_times += 1;
+                    else:
+                        CHECK_OUT_EARLY, early_time = info.check_out_state
+                        print "early: ", info.en_no, USERS.get(info.en_no), info.checkout_datetime
+                        total_early_times += 1
+                        total_early += early_time;
             else:
                 print "no ", EnNo, USERS.get(EnNo), day
                 not_days += 1
-        return EnNo, USERS.get(EnNo), total_days, not_days, total_late_times, total_late
+        return EnNo, USERS.get(EnNo), total_days, not_days, total_late_times, total_late, total_early_times, total_early
 
     # 根据 id 和日期信息查找注册信息
     def find_info(self, EnNo, Day):
@@ -197,10 +211,10 @@ def generate():
     for value in AllInfo:
         info_list.parse_register_info(value)
     fw = open(SUFFIX + FILE, 'w')
-    fw.write(u"考勤号\t名字\t出勤天数\t缺勤天数\t迟到次数\t累计迟到时间（分钟）\t是否全勤" + os.linesep)
+    fw.write(u"考勤号\t名字\t出勤天数\t缺勤天数\t迟到次数\t累计迟到时间（分钟）\t早退次数\t累计早退时间（分钟）\t是否全勤" + os.linesep)
     for key in USERS.keys():
-        Id, Name, Days, NotDays, LateTimes, Late = info_list.calc(key)
-        fw.write(str(Id) + "\t" + Name + "\t" + str(Days) + "\t" + str(NotDays) + "\t" + str(LateTimes) + "\t" + str(Late / 60) + '\t0' + os.linesep)
+        Id, Name, Days, NotDays, LateTimes, Late, EarlyTimes, Early = info_list.calc(key)
+        fw.write(str(Id) + "\t" + Name + "\t" + str(Days) + "\t" + str(NotDays) + "\t" + str(LateTimes) + "\t" + str(Late / 60) + "\t" + str(EarlyTimes) + "\t" + str(Early / 60) + '\t0' + os.linesep)
     fw.close()
 
 if __name__ == "__main__":
